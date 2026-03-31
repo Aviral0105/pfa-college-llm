@@ -22,7 +22,7 @@ def run_simulation(api_key, num_turns=4):
             
     # 2. Initialize the PFA Model (This persona remains static)
     pfa_model = genai.GenerativeModel(
-        model_name='gemini-1.5-flash',
+        model_name='gemini-2.5-flash',
         system_instruction=pfa_system_prompt
     )
 
@@ -41,7 +41,7 @@ def run_simulation(api_key, num_turns=4):
         )
         
         client_model = genai.GenerativeModel(
-            model_name='gemini-1.5-flash',
+            model_name='gemini-2.5-flash',
             system_instruction=client_prompt
         )
         
