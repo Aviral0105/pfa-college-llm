@@ -52,21 +52,24 @@ def run_simulation(api_key, num_turns=4):
         conversation = []
         
         # Force the Client to speak first
+        print("   -> Initializing Client distress...")
         client_response = client_chat.send_message("Start the conversation by expressing your current distress.")
         conversation.append({"role": "client", "content": client_response.text.strip()})
-        time.sleep(4) # Pause
+        time.sleep(15) # Safe pause
         
         # Pass messages back and forth
-        for _ in range(num_turns):
+        for turn in range(num_turns):
+            print(f"   -> Executing Turn {turn+1}/{num_turns}...")
+            
             # Responder replies to Client
             pfa_response = pfa_chat.send_message(conversation[-1]['content'])
             conversation.append({"role": "responder", "content": pfa_response.text.strip()})
-            time.sleep(4) # Pause
+            time.sleep(15) # Safe pause
             
             # Client replies to Responder
             client_reply = client_chat.send_message(conversation[-1]['content'])
             conversation.append({"role": "client", "content": client_reply.text.strip()})
-            time.sleep(4) # Pause
+            time.sleep(15) # Safe pause
             
         # Store the full transcript
         results.append({
@@ -74,8 +77,8 @@ def run_simulation(api_key, num_turns=4):
             "transcript": conversation
         })
         
-        print("Scenario complete. Sleeping for 15 seconds to respect API limits...")
-        time.sleep(15) # Long pause before starting the next scenario
+        print("✅ Scenario complete. Saving and resting before the next one...")
+        time.sleep(15)
         
     # 4. Save to the persistent directory
     output_file = 'data/synthetic_raw/simulated_conversations.json'
