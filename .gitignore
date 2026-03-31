@@ -1,0 +1,13 @@
+# Environments & Keys
+.env
+__pycache__/
+*.pyc
+
+# Notebook Checkpoints
+.ipynb_checkpoints/
+
+# Data (Handled via Google Drive)
+data/synthetic_raw/*
+data/synthetic_filtered/*
+data/final_training/*
+!data/raw/
