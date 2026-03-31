@@ -77,11 +77,13 @@ def run_simulation(api_key, num_turns=3): # Reduced turns to 3 for the test
             
         results.append({"scenario": stressor, "transcript": conversation})
         
-        # SAVE IMMEDIATELY
-        output_path = 'data/synthetic_raw/simulated_conversations.json'
+       # SAVE IMMEDIATELY (Self-healing folder creation)
+        output_dir = 'data/synthetic_raw'
+        if not os.path.exists(output_dir):
+            os.makedirs(output_dir, exist_ok=True)
+            
+        output_path = os.path.join(output_dir, 'simulated_conversations.json')
         with open(output_path, 'w') as f:
             json.dump(results, f, indent=4)
-        print(f"[{get_time()}] ✅ Saved Scenario {idx+1}. Resting 30s...")
-        time.sleep(30)
 
     print(f"\n[{get_time()}] 🎉 TEST COMPLETE. Check your Drive for the file.")
