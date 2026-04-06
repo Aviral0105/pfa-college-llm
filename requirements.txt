@@ -1,5 +1,4 @@
 google-generativeai
 groq
 pandas
-tqdm
 python-dotenv
