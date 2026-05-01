@@ -22,13 +22,15 @@ def run_simulation(api_key, num_turns=3):
     with open('data/raw/college_stressors.csv', 'r') as f:
         reader = csv.DictReader(f)
         for i, row in enumerate(reader):
-            if i < 4: stressors.append(row) # Test mode: only doing 4
+            # CHANGED: Updated to generate 5 datasets
+            if i < 5: stressors.append(row) 
 
     results = []
     print(f"[{get_time()}] 🚀 Starting High-Speed Groq Simulation...")
 
     for idx, stressor in enumerate(stressors):
-        print(f"\n[{get_time()}] Scenario {idx+1}/4: {stressor['Scenario']}")
+        # CHANGED: 'scenario' is now lowercase to match your new CSV columns
+        print(f"\n[{get_time()}] Scenario {idx+1}/{len(stressors)}: {stressor['scenario']}")
         
         # Setup AI instructions
         client_sys = client_system_template.format(**stressor)
