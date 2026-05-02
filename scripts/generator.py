@@ -30,7 +30,7 @@ def run_simulation(api_key, num_conversations=4, stressor_limit=5):
     with open("data/raw/college_stressors.csv", "r", encoding="utf-8") as f:
         reader = csv.DictReader(f)
         for i, row in enumerate(reader):
-            if i < 5:                          # keep the same 5-row cap for now
+            if i < stressor_limit:                          # keep the same 5-row cap for now
                 stressors.append(row)
 
     all_results = []
