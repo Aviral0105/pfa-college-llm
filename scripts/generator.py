@@ -11,7 +11,7 @@ def get_time():
     return datetime.now().strftime("%H:%M:%S")
 
 
-def run_simulation(api_key, num_conversations=4):
+def run_simulation(api_key, num_conversations=4, stressor_limit=5):
     """
     For every stressor row in the CSV, generate `num_conversations` distinct
     conversations, each containing between 3 and 4 full therapist↔client
