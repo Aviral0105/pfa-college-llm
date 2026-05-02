@@ -2,106 +2,153 @@ import os
 import csv
 import json
 import time
+import random
 from datetime import datetime
 from groq import Groq
+
 
 def get_time():
     return datetime.now().strftime("%H:%M:%S")
 
-def run_simulation(api_key, num_turns=3):
-    # Initialize the Groq Client
+
+def run_simulation(api_key, num_conversations=4):
+    """
+    For every stressor row in the CSV, generate `num_conversations` distinct
+    conversations, each containing between 3 and 4 full therapist↔client
+    exchange turns.
+    """
     client = Groq(api_key=api_key)
-    
-    # 1. Load Prompts
-    with open('prompts/system_pfa_agent.txt', 'r', encoding='utf-8') as f:
+
+    # ── Load prompts ──────────────────────────────────────────────────────────
+    with open("prompts/system_pfa_agent.txt", "r", encoding="utf-8") as f:
         pfa_system = f.read()
-    with open('prompts/system_client.txt', 'r', encoding='utf-8') as f:
+    with open("prompts/system_client.txt", "r", encoding="utf-8") as f:
         client_system_template = f.read()
-        
+
+    # ── Load stressors ────────────────────────────────────────────────────────
     stressors = []
-    with open('data/raw/college_stressors.csv', 'r', encoding='utf-8') as f:
+    with open("data/raw/college_stressors.csv", "r", encoding="utf-8") as f:
         reader = csv.DictReader(f)
         for i, row in enumerate(reader):
-            if i < 5: stressors.append(row) # Now set to generate exactly 5 datasets
+            if i < 5:                          # keep the same 5-row cap for now
+                stressors.append(row)
 
-    results = []
-    print(f"[{get_time()}] 🚀 Starting High-Speed Groq Simulation...")
+    all_results = []
+    print(f"[{get_time()}] 🚀 Starting simulation — "
+          f"{num_conversations} conversations × {len(stressors)} stressors")
 
+    # ── OUTER LOOP: iterate over every stressor ───────────────────────────────
     for idx, stressor in enumerate(stressors):
-        # Uses the new lowercase 'scenario' column name securely
-        scenario_desc = stressor.get('scenario', 'Unknown Scenario')
-        print(f"\n[{get_time()}] Scenario {idx+1}/{len(stressors)}: {scenario_desc}")
-        
-        # Setup AI instructions
+        scenario_desc = stressor.get("scenario", "Unknown Scenario")
+        print(f"\n[{get_time()}] ── Stressor {idx + 1}/{len(stressors)}: "
+              f"{scenario_desc}")
+
+        # Build the client system prompt once per stressor
         try:
-            # This injects your new CSV columns into the prompt
             client_sys = client_system_template.format(**stressor)
         except KeyError as e:
-            print(f"[{get_time()}] ⚠️ WARNING: Your prompts/system_client.txt contains a placeholder {e} that doesn't match your new CSV headers!")
-            print(f"[{get_time()}] ⚠️ Using fallback prompt to prevent crash...")
-            client_sys = f"You are a college student experiencing this distress: {scenario_desc}. Express your feelings."
-        
-        pfa_messages = [{"role": "system", "content": pfa_system}]
-        client_messages = [{"role": "system", "content": client_sys}]
-        
-        # Client speaks first
-        print(f"   -> [{get_time()}] Client starting...")
-        try:
-            res = client.chat.completions.create(
-                model="llama-3.3-70b-versatile",
-                messages=[{"role": "user", "content": "Start the conversation by expressing your distress."}]
+            print(f"[{get_time()}] ⚠️  Missing placeholder {e} — using fallback.")
+            client_sys = (
+                f"You are a college student experiencing this distress: "
+                f"{scenario_desc}. Express your feelings authentically."
             )
-            first_msg = res.choices[0].message.content
-        except Exception as e:
-             print(f"   -> ❌ API Error: {e}")
-             continue # Skip to the next one if the API fails
-        
-        # Save the message to both agents' memories
-        pfa_messages.append({"role": "user", "content": first_msg})
-        client_messages.append({"role": "assistant", "content": first_msg})
-        time.sleep(2) # Increased to 2 seconds to respect Groq rate limits
 
-        for turn in range(num_turns):
-            print(f"   -> [{get_time()}] Turn {turn+1} in progress...")
-            
+        # ── CONVERSATION LOOP: 4 distinct conversations per stressor ─────────
+        # FIX 1 ▸ New outer loop — previously only 1 conversation was produced.
+        for conv_idx in range(num_conversations):
+            print(f"   [{get_time()}] Conversation {conv_idx + 1}/{num_conversations}")
+
+            # FIX 2 ▸ Randomise turns between 3 and 4 per conversation.
+            # Previously num_turns was a fixed parameter with no per-conversation
+            # variation; now each conversation independently draws 3 or 4 turns.
+            num_turns = random.randint(3, 4)
+            print(f"   [{get_time()}] → This conversation will use {num_turns} turns")
+
+            # Fresh message histories for every new conversation
+            # FIX 3 ▸ Histories are reset here (inside the conv loop), not just
+            # once per stressor — previously a single history was reused, which
+            # would have blended context across conversations.
+            pfa_messages    = [{"role": "system", "content": pfa_system}]
+            client_messages = [{"role": "system", "content": client_sys}]
+
+            # ── Turn 0: client opens the conversation ─────────────────────────
             try:
-                # PFA replies
-                res_pfa = client.chat.completions.create(
+                res = client.chat.completions.create(
                     model="llama-3.3-70b-versatile",
-                    messages=pfa_messages
+                    messages=[
+                        {"role": "system",  "content": client_sys},
+                        {"role": "user",    "content": "Start the conversation by expressing your distress."},
+                    ],
                 )
-                pfa_out = res_pfa.choices[0].message.content
-                pfa_messages.append({"role": "assistant", "content": pfa_out})
-                client_messages.append({"role": "user", "content": pfa_out})
-                time.sleep(2)
-
-                # Client replies
-                res_cli = client.chat.completions.create(
-                    model="llama-3.3-70b-versatile",
-                    messages=client_messages
-                )
-                cli_out = res_cli.choices[0].message.content
-                client_messages.append({"role": "assistant", "content": cli_out})
-                pfa_messages.append({"role": "user", "content": cli_out})
-                time.sleep(2)
+                first_msg = res.choices[0].message.content
             except Exception as e:
-                print(f"   -> ❌ API Error during turn {turn+1}: {e}")
-                break # Save whatever dialogue we have so far and move on
+                print(f"   [{get_time()}] ❌ API error on opening turn: {e}")
+                continue           # skip this conversation, try the next
 
-        # Clean up the format for our JSON file
-        transcript = []
-        for i, msg in enumerate(pfa_messages[1:]): # Skip the system prompt
-            role = "client" if i % 2 == 0 else "responder"
-            transcript.append({"role": role, "content": msg["content"]})
+            pfa_messages.append(   {"role": "user",      "content": first_msg})
+            client_messages.append({"role": "assistant", "content": first_msg})
+            time.sleep(2)
 
-        # Packaged with all your new Kosha metadata!
-        results.append({"metadata": stressor, "transcript": transcript})
-        
-        # Save securely
-        os.makedirs('data/synthetic_raw', exist_ok=True)
-        with open('data/synthetic_raw/simulated_conversations.json', 'w', encoding='utf-8') as f:
-            json.dump(results, f, indent=4, ensure_ascii=False)
-            
-        print(f"[{get_time()}] ✅ Saved Scenario {idx+1}.")
+            # ── Exchange turns ─────────────────────────────────────────────────
+            for turn in range(num_turns):
+                print(f"   [{get_time()}]   turn {turn + 1}/{num_turns} …")
 
-    print(f"\n[{get_time()}] 🎉 PIPELINE STABILIZED. Generated {len(results)} datasets.")
+                try:
+                    # Therapist replies
+                    res_pfa = client.chat.completions.create(
+                        model="llama-3.3-70b-versatile",
+                        messages=pfa_messages,
+                    )
+                    pfa_out = res_pfa.choices[0].message.content
+                    pfa_messages.append(   {"role": "assistant", "content": pfa_out})
+                    client_messages.append({"role": "user",      "content": pfa_out})
+                    time.sleep(2)
+
+                    # Client replies
+                    res_cli = client.chat.completions.create(
+                        model="llama-3.3-70b-versatile",
+                        messages=client_messages,
+                    )
+                    cli_out = res_cli.choices[0].message.content
+                    client_messages.append({"role": "assistant", "content": cli_out})
+                    pfa_messages.append(   {"role": "user",      "content": cli_out})
+                    time.sleep(2)
+
+                except Exception as e:
+                    print(f"   [{get_time()}] ❌ API error on turn {turn + 1}: {e}")
+                    break          # save whatever turns completed
+
+            # ── Build transcript ───────────────────────────────────────────────
+            transcript = []
+            for i, msg in enumerate(pfa_messages[1:]):   # skip system prompt
+                role = "client" if i % 2 == 0 else "responder"
+                transcript.append({"role": role, "content": msg["content"]})
+
+            # FIX 4 ▸ conversation_index added to metadata so every record is
+            # uniquely identifiable in the output JSON.
+            all_results.append({
+                "metadata": {
+                    **stressor,
+                    "conversation_index": conv_idx + 1,   # 1-based for readability
+                },
+                "num_turns": num_turns,
+                "transcript": transcript,
+            })
+
+            print(f"   [{get_time()}] ✅ Conversation {conv_idx + 1} saved "
+                  f"({num_turns} turns, {len(transcript)} messages).")
+
+        # ── Persist after every stressor (safe mid-run saves) ─────────────────
+        os.makedirs("data/synthetic_raw", exist_ok=True)
+        with open(
+            "data/synthetic_raw/simulated_conversations.json", "w", encoding="utf-8"
+        ) as f:
+            json.dump(all_results, f, indent=4, ensure_ascii=False)
+
+        print(f"[{get_time()}] 💾 Saved after stressor {idx + 1} "
+              f"({len(all_results)} total conversations so far).")
+
+    print(
+        f"\n[{get_time()}] 🎉 PIPELINE COMPLETE — "
+        f"{len(all_results)} conversations across {len(stressors)} stressors."
+    )
